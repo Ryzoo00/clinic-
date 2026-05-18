@@ -71,13 +71,15 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
+// Start server (only if not running on Vercel)
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`📍 API Health: http://localhost:${PORT}/api/health`);
-});
+if (process.env.NODE_ENV !== 'production' || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`📍 API Health: http://localhost:${PORT}/api/health`);
+  });
+}
 
 export default app;
