@@ -27,7 +27,6 @@
     "express-rate-limit": "^7.1.5"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2",
-    "eslint": "^8.56.0"
+    "nodemon": "^3.0.2"
   }
 }
