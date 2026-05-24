@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 import ProtectedRoute from './components/UI/ProtectedRoute'
 
 // Auth Pages
@@ -31,13 +32,18 @@ import { ManageAppointments } from './pages/placeholder'
 
 // Patient Pages
 import PatientDashboard from './pages/patient/PatientDashboard'
-import { PrescriptionHistory, MyAppointments, MedicalHistory, PatientProfile } from './pages/placeholder'
+import MyAppointments from './pages/patient/MyAppointments'
+import PrescriptionHistory from './pages/patient/PrescriptionHistory'
+import OnlinePayment from './pages/patient/OnlinePayment'
+import DownloadReports from './pages/patient/DownloadReports'
+import { MedicalHistory, PatientProfile } from './pages/placeholder'
 
 // Common Pages
 import Chat from './pages/common/Chat'
 
 function App() {
   return (
+    <ThemeProvider>
     <AuthProvider>
       <Routes>
         {/* Public Routes */}
@@ -206,6 +212,22 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="/patient/payments"
+              element={
+                <ProtectedRoute allowedRoles={['patient']}>
+                  <OnlinePayment />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/patient/reports"
+              element={
+                <ProtectedRoute allowedRoles={['patient']}>
+                  <DownloadReports />
+                </ProtectedRoute>
+              }
+            />
           </Route>
 
           {/* Default redirect */}
@@ -214,6 +236,7 @@ function App() {
         </Route>
       </Routes>
     </AuthProvider>
+    </ThemeProvider>
   )
 }
 

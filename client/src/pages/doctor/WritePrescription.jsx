@@ -1,183 +1,192 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import api from '../../api/axios';
+import { Plus, Trash2, Send, FileText, User, Pill, Activity, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
 const WritePrescription = () => {
-  const [appointments, setAppointments] = useState([]);
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  
-  const [formData, setFormData] = useState({
-    appointmentId: '',
+  const [form, setForm] = useState({
     patientId: '',
     diagnosis: '',
-    medications: [{ name: '', dosage: '', frequency: '', duration: '' }],
-    advice: '',
-    followUpDate: ''
+    notes: '',
+    medications: [{ name: '', dosage: '', duration: '', notes: '' }],
   });
-
-  useEffect(() => {
-    fetchAppointments();
-  }, []);
-
-  const fetchAppointments = async () => {
-    try {
-      const { data } = await api.get('/api/appointments/doctor/my?status=completed');
-      setAppointments(data.data);
-    } catch (error) {
-      toast.error('Failed to load appointments');
-    }
-  };
+  const [submitting, setSubmitting] = useState(false);
 
   const addMedication = () => {
-    setFormData({
-      ...formData,
-      medications: [...formData.medications, { name: '', dosage: '', frequency: '', duration: '' }]
-    });
+    setForm(prev => ({ ...prev, medications: [...prev.medications, { name: '', dosage: '', duration: '', notes: '' }] }));
   };
 
   const removeMedication = (index) => {
-    const meds = formData.medications.filter((_, i) => i !== index);
-    setFormData({ ...formData, medications: meds });
+    if (form.medications.length === 1) return;
+    setForm(prev => ({ ...prev, medications: prev.medications.filter((_, i) => i !== index) }));
   };
 
   const updateMedication = (index, field, value) => {
-    const meds = [...formData.medications];
-    meds[index][field] = value;
-    setFormData({ ...formData, medications: meds });
+    setForm(prev => {
+      const medications = [...prev.medications];
+      medications[index] = { ...medications[index], [field]: value };
+      return { ...prev, medications };
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    if (!form.patientId || !form.medications[0].name) {
+      toast.error('Please fill in patient ID and at least one medication');
+      return;
+    }
+    setSubmitting(true);
     try {
-      await api.post('/api/prescriptions', formData);
-      toast.success('Prescription created successfully');
+      await api.post('/api/prescriptions', form);
+      toast.success('Prescription created successfully!');
       navigate('/doctor/prescriptions');
     } catch (error) {
-      toast.error(error.response?.data?.error || 'Failed to create prescription');
+      toast.error(error.response?.data?.message || 'Failed to create prescription');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const handleAppointmentSelect = (aptId) => {
-    const apt = appointments.find(a => a._id === aptId);
-    setFormData({ 
-      ...formData, 
-      appointmentId: aptId,
-      patientId: apt?.patientId?._id || ''
-    });
-  };
-
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Write Prescription</h1>
-      
-      <form onSubmit={handleSubmit} className="card space-y-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Select Completed Appointment</label>
-          <select 
-            className="input" 
-            value={formData.appointmentId}
-            onChange={(e) => handleAppointmentSelect(e.target.value)}
-            required
-          >
-            <option value="">Select appointment</option>
-            {appointments.map(apt => (
-              <option key={apt._id} value={apt._id}>
-                Patient #{apt.patientId?._id?.slice(-4)} - {new Date(apt.date).toLocaleDateString()} {apt.time}
-              </option>
-            ))}
-          </select>
+    <div className="max-w-3xl mx-auto space-y-6 animate-fadeIn">
+      {/* Header */}
+      <div className="relative bg-gradient-to-br from-medical-600 to-medical-800 rounded-2xl p-6 md:p-8 overflow-hidden">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div className="relative z-10 flex items-center gap-4">
+          <div className="w-14 h-14 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center">
+            <FileText className="w-7 h-7 text-white" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-white">Write Prescription</h1>
+            <p className="text-medical-200 mt-1">Issue a new prescription for a patient</p>
+          </div>
         </div>
+      </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Diagnosis</label>
-          <input
-            type="text"
-            className="input"
-            value={formData.diagnosis}
-            onChange={(e) => setFormData({ ...formData, diagnosis: e.target.value })}
-            required
-          />
-        </div>
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="relative bg-white/80 dark:bg-dark-800/80 backdrop-blur-xl rounded-2xl border border-gray-100/50 dark:border-dark-700/50 shadow-lg dark:shadow-gray-900/30 p-6 md:p-8">
+        <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-medical-500 via-medical-400 to-medical-500 rounded-t-2xl"></div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Medications</label>
-          {formData.medications.map((med, index) => (
-            <div key={index} className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3 p-4 bg-gray-50 rounded-lg">
-              <input
-                type="text"
-                placeholder="Name"
-                className="input"
-                value={med.name}
-                onChange={(e) => updateMedication(index, 'name', e.target.value)}
-                required
-              />
-              <input
-                type="text"
-                placeholder="Dosage"
-                className="input"
-                value={med.dosage}
-                onChange={(e) => updateMedication(index, 'dosage', e.target.value)}
-                required
-              />
-              <input
-                type="text"
-                placeholder="Frequency"
-                className="input"
-                value={med.frequency}
-                onChange={(e) => updateMedication(index, 'frequency', e.target.value)}
-                required
-              />
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Duration"
-                  className="input flex-1"
-                  value={med.duration}
-                  onChange={(e) => updateMedication(index, 'duration', e.target.value)}
-                  required
-                />
-                {formData.medications.length > 1 && (
-                  <button type="button" onClick={() => removeMedication(index)} className="btn btn-danger px-3">×</button>
-                )}
-              </div>
+        <div className="space-y-6 mt-2">
+          {/* Patient ID */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+              <User className="w-4 h-4 text-medical-500" />
+              Patient ID
+            </label>
+            <input
+              type="text"
+              placeholder="Enter patient ID"
+              value={form.patientId}
+              onChange={(e) => setForm({ ...form, patientId: e.target.value })}
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-dark-700/50 border border-gray-200 dark:border-dark-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-medical-500/30 focus:border-medical-500 transition-all duration-200"
+            />
+          </div>
+
+          {/* Diagnosis */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-medical-500" />
+              Diagnosis
+            </label>
+            <textarea
+              placeholder="Enter diagnosis"
+              value={form.diagnosis}
+              onChange={(e) => setForm({ ...form, diagnosis: e.target.value })}
+              rows={3}
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-dark-700/50 border border-gray-200 dark:border-dark-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-medical-500/30 focus:border-medical-500 transition-all duration-200 resize-none"
+            />
+          </div>
+
+          {/* Medications Section */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                <Pill className="w-4 h-4 text-medical-500" />
+                Medications
+              </label>
+              <button type="button" onClick={addMedication} className="text-sm text-medical-600 dark:text-medical-400 hover:text-medical-700 dark:hover:text-medical-300 font-medium flex items-center gap-1.5 transition-colors">
+                <Plus className="w-4 h-4" /> Add Medication
+              </button>
             </div>
-          ))}
-          <button type="button" onClick={addMedication} className="btn btn-outline">
-            + Add Medication
-          </button>
-        </div>
+            <div className="space-y-3">
+              {form.medications.map((med, idx) => (
+                <div key={idx} className="p-4 bg-gray-50/50 dark:bg-dark-700/20 rounded-xl border border-gray-100 dark:border-dark-700 hover:border-medical-100 dark:hover:border-medical-900/50 transition-colors">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Medication #{idx + 1}</span>
+                    <button type="button" onClick={() => removeMedication(idx)} className="p-1.5 rounded-lg text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Medication name"
+                      value={med.name}
+                      onChange={(e) => updateMedication(idx, 'name', e.target.value)}
+                      className="px-4 py-2.5 bg-white dark:bg-dark-700/50 border border-gray-200 dark:border-dark-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-medical-500/30 focus:border-medical-500 transition-all duration-200"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Dosage (e.g., 500mg)"
+                      value={med.dosage}
+                      onChange={(e) => updateMedication(idx, 'dosage', e.target.value)}
+                      className="px-4 py-2.5 bg-white dark:bg-dark-700/50 border border-gray-200 dark:border-dark-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-medical-500/30 focus:border-medical-500 transition-all duration-200"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Duration (e.g., 7 days)"
+                      value={med.duration}
+                      onChange={(e) => updateMedication(idx, 'duration', e.target.value)}
+                      className="px-4 py-2.5 bg-white dark:bg-dark-700/50 border border-gray-200 dark:border-dark-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-medical-500/30 focus:border-medical-500 transition-all duration-200"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Notes (optional)"
+                      value={med.notes}
+                      onChange={(e) => updateMedication(idx, 'notes', e.target.value)}
+                      className="px-4 py-2.5 bg-white dark:bg-dark-700/50 border border-gray-200 dark:border-dark-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-medical-500/30 focus:border-medical-500 transition-all duration-200"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Advice</label>
-          <textarea
-            className="input"
-            rows="3"
-            value={formData.advice}
-            onChange={(e) => setFormData({ ...formData, advice: e.target.value })}
-          />
-        </div>
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-medical-500" />
+              Additional Notes
+            </label>
+            <textarea
+              placeholder="Any additional notes or instructions"
+              value={form.notes}
+              onChange={(e) => setForm({ ...form, notes: e.target.value })}
+              rows={2}
+              className="w-full px-4 py-3 bg-gray-50 dark:bg-dark-700/50 border border-gray-200 dark:border-dark-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-medical-500/30 focus:border-medical-500 transition-all duration-200 resize-none"
+            />
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Follow-up Date</label>
-          <input
-            type="date"
-            className="input"
-            value={formData.followUpDate}
-            onChange={(e) => setFormData({ ...formData, followUpDate: e.target.value })}
-          />
-        </div>
-
-        <div className="flex gap-4">
-          <button type="submit" disabled={loading} className="px-6 py-3 bg-gradient-to-r from-medical-600 to-medical-700 text-white rounded-xl font-medium hover:from-medical-700 hover:to-medical-800 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50">
-            {loading ? 'Creating...' : 'Create Prescription'}
-          </button>
-          <button type="button" onClick={() => navigate('/doctor/prescriptions')} className="btn btn-secondary">
-            Cancel
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={submitting}
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-medical-500 to-medical-600 text-white rounded-xl font-medium hover:from-medical-600 hover:to-medical-700 shadow-lg shadow-medical-500/25 hover:shadow-xl hover:shadow-medical-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {submitting ? (
+              <>
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                Creating...
+              </>
+            ) : (
+              <>
+                <Send className="w-5 h-5" />
+                Create Prescription
+              </>
+            )}
           </button>
         </div>
       </form>

@@ -1,251 +1,144 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import api from '../../api/axios';
-import { Send, MessageCircle, User } from 'lucide-react';
+import { Send, Bot, User, MessageSquare, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const Chat = () => {
-  const [chats, setChats] = useState([]);
-  const [selectedChat, setSelectedChat] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   useEffect(() => {
-    fetchChats();
+    fetchMessages();
   }, []);
 
   useEffect(() => {
-    if (selectedChat) {
-      fetchMessages(selectedChat._id);
-      // Auto-refresh messages every 3 seconds
-      const interval = setInterval(() => {
-        fetchMessages(selectedChat._id);
-      }, 3000);
-      return () => clearInterval(interval);
-    }
-  }, [selectedChat]);
+    scrollToBottom();
+  }, [messages]);
 
-  const fetchChats = async () => {
+  const fetchMessages = async () => {
     try {
-      const res = await api.get('/api/chat');
-      setChats(res.data.data || []);
+      const { data } = await api.get('/api/chat');
+      setMessages(data.data || data);
     } catch (error) {
-      toast.error('Failed to load chats');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchMessages = async (chatId) => {
-    try {
-      const res = await api.get(`/api/chat/messages/${chatId}`);
-      setMessages(res.data.data || []);
-    } catch (error) {
-      console.error('Failed to load messages');
+      // Silent fail for initial load
     }
   };
 
   const sendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || !selectedChat) return;
+    if (!input.trim()) return;
+    const userMessage = input.trim();
+    setInput('');
 
-    setSending(true);
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+    setLoading(true);
+
     try {
-      const receiverId = selectedChat.participants.find(
-        p => p._id !== selectedChat.messages?.[0]?.senderId?._id
-      )?._id;
-
-      await api.post('/api/chat', {
-        receiverId,
-        message: newMessage.trim()
-      });
-
-      setNewMessage('');
-      fetchMessages(selectedChat._id);
-      fetchChats();
+      const { data } = await api.post('/api/chat', { message: userMessage });
+      setMessages(prev => [...prev, { role: 'assistant', content: data.data?.response || data.response || data.message }]);
     } catch (error) {
       toast.error('Failed to send message');
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Sorry, I encountered an error. Please try again.' }]);
     } finally {
-      setSending(false);
+      setLoading(false);
     }
   };
 
-  const formatTime = (date) => {
-    return new Date(date).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  const getOtherUser = (chat) => {
-    // Return the participant that's not the current user
-    return chat.participants.find(p => p._id !== chat.participants[0]._id) || chat.participants[0];
-  };
-
-  if (loading) {
-    return (
-      <div className="text-center py-12">
-        <div className="animate-spin w-12 h-12 border-4 border-medical-500 border-t-transparent rounded-full mx-auto"></div>
-        <p className="text-gray-600 mt-4">Loading chats...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-          <MessageCircle className="w-8 h-8 text-medical-600" />
-          Messages 💬
-        </h1>
-        <p className="text-gray-600 mt-1">Chat with doctors and patients</p>
+    <div className="max-w-3xl mx-auto h-[calc(100vh-8rem)] flex flex-col animate-fadeIn">
+      {/* Header */}
+      <div className="relative bg-gradient-to-br from-medical-600 to-medical-800 rounded-t-2xl p-4 md:p-6 overflow-hidden shrink-0">
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="w-12 h-12 bg-white/20 backdrop-blur-xl rounded-xl flex items-center justify-center">
+            <MessageSquare className="w-6 h-6 text-white" />
+          </div>
+          <div className="flex-1">
+            <h1 className="text-lg font-bold text-white">AI Health Assistant</h1>
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+              <span className="text-xs text-medical-200">Online</span>
+            </div>
+          </div>
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white/10 backdrop-blur-sm rounded-full border border-white/10">
+            <Sparkles className="w-3.5 h-3.5 text-medical-300" />
+            <span className="text-xs text-medical-200">AI Powered</span>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[calc(100vh-200px)]">
-        {/* Chat List */}
-        <div className="card overflow-y-auto">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Conversations</h2>
-          
-          {chats.length === 0 ? (
-            <div className="text-center py-12">
-              <MessageCircle className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-              <p className="text-gray-500">No conversations yet</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              {chats.map((chat) => {
-                const otherUser = getOtherUser(chat);
-                const isSelected = selectedChat?._id === chat._id;
-                const unreadCount = chat.messages?.filter(
-                  msg => !msg.isRead && msg.receiverId?._id === chat.participants[0]._id
-                ).length || 0;
-
-                return (
-                  <div
-                    key={chat._id}
-                    onClick={() => setSelectedChat(chat)}
-                    className={`p-4 rounded-xl cursor-pointer transition-all duration-200 hover:bg-gray-50 ${
-                      isSelected ? 'bg-medical-50 border-2 border-medical-500' : 'border-2 border-transparent'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-medical-500 to-medical-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                        {otherUser.name?.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h3 className="font-semibold text-gray-900 truncate">
-                            {otherUser.role === 'doctor' ? 'Dr. ' : ''}{otherUser.name}
-                          </h3>
-                          {chat.lastMessageAt && (
-                            <span className="text-xs text-gray-500 ml-2">
-                              {formatTime(chat.lastMessageAt)}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 truncate mt-1">
-                          {chat.lastMessage || 'No messages yet'}
-                        </p>
-                      </div>
-                      {unreadCount > 0 && (
-                        <div className="bg-medical-600 text-white text-xs font-bold px-2 py-1 rounded-full">
-                          {unreadCount}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto bg-white/80 dark:bg-dark-800/80 backdrop-blur-xl border-l border-r border-gray-100/50 dark:border-dark-700/50">
+        <div className="p-4 md:p-6 space-y-4">
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full py-16 text-center">
+              <div className="w-16 h-16 bg-gradient-to-br from-medical-50 to-medical-100 dark:from-medical-900/20 dark:to-medical-900/10 rounded-full flex items-center justify-center mb-4">
+                <Bot className="w-8 h-8 text-medical-400" />
+              </div>
+              <p className="text-gray-500 dark:text-gray-400 mb-2">Start a conversation with your AI assistant</p>
+              <p className="text-sm text-gray-400 dark:text-gray-500">Ask about symptoms, appointments, or general health questions</p>
             </div>
           )}
-        </div>
-
-        {/* Chat Window */}
-        <div className="lg:col-span-2 card flex flex-col">
-          {selectedChat ? (
-            <>
-              {/* Chat Header */}
-              <div className="pb-4 border-b border-gray-200">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-medical-500 to-medical-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                    {getOtherUser(selectedChat).name?.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-gray-900 text-lg">
-                      {getOtherUser(selectedChat).role === 'doctor' ? 'Dr. ' : ''}{getOtherUser(selectedChat).name}
-                    </h3>
-                    <p className="text-sm text-gray-600">{getOtherUser(selectedChat).email}</p>
-                  </div>
+          {messages.map((msg, idx) => (
+            <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-md ${
+                msg.role === 'user'
+                  ? 'bg-gradient-to-br from-medical-500 to-medical-600'
+                  : 'bg-gradient-to-br from-violet-500 to-violet-600'
+              }`}>
+                {msg.role === 'user' ? <User className="w-5 h-5 text-white" /> : <Bot className="w-5 h-5 text-white" />}
+              </div>
+              <div className={`max-w-[75%] px-4 py-3 rounded-2xl text-sm leading-relaxed ${
+                msg.role === 'user'
+                  ? 'bg-gradient-to-br from-medical-500 to-medical-600 text-white shadow-lg shadow-medical-500/20 rounded-tr-sm'
+                  : 'bg-gray-50 dark:bg-dark-700/50 text-gray-800 dark:text-gray-200 border border-gray-100 dark:border-dark-700 rounded-tl-sm'
+              }`}>
+                <p className="whitespace-pre-wrap">{msg.content}</p>
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div className="flex gap-3">
+              <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-violet-600 rounded-xl flex items-center justify-center shadow-md shrink-0">
+                <Bot className="w-5 h-5 text-white" />
+              </div>
+              <div className="bg-gray-50 dark:bg-dark-700/50 border border-gray-100 dark:border-dark-700 rounded-2xl rounded-tl-sm px-4 py-3">
+                <div className="flex gap-1.5">
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                 </div>
               </div>
-
-              {/* Messages */}
-              <div className="flex-1 overflow-y-auto py-4 space-y-3">
-                {messages.length === 0 ? (
-                  <div className="text-center py-12">
-                    <MessageCircle className="w-12 h-12 mx-auto text-gray-300 mb-3" />
-                    <p className="text-gray-500">No messages yet. Start the conversation!</p>
-                  </div>
-                ) : (
-                  messages.map((msg, index) => {
-                    // In a real app, you'd compare with current user ID from context
-                    const isOwn = index % 2 === 0; // Simplified - replace with actual check
-
-                    return (
-                      <div
-                        key={index}
-                        className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-[70%] rounded-2xl px-4 py-2 ${
-                            isOwn
-                              ? 'bg-medical-600 text-white'
-                              : 'bg-gray-100 text-gray-900'
-                          }`}
-                        >
-                          <p className="text-sm">{msg.message}</p>
-                          <p className={`text-xs mt-1 ${isOwn ? 'text-medical-100' : 'text-gray-500'}`}>
-                            {formatTime(msg.createdAt)}
-                          </p>
-                        </div>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Message Input */}
-              <form onSubmit={sendMessage} className="pt-4 border-t border-gray-200 flex gap-2">
-                <input
-                  type="text"
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type your message..."
-                  className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-medical-500 focus:border-transparent"
-                  required
-                />
-                <button
-                  type="submit"
-                  disabled={sending || !newMessage.trim()}
-                  className="px-6 py-3 bg-gradient-to-r from-medical-600 to-medical-700 text-white rounded-xl font-medium hover:from-medical-700 hover:to-medical-800 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center gap-2"
-                >
-                  <Send className="w-5 h-5" />
-                  {sending ? 'Sending...' : 'Send'}
-                </button>
-              </form>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <MessageCircle className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                <p className="text-gray-500 text-lg">Select a conversation to start chatting</p>
-              </div>
             </div>
           )}
+          <div ref={messagesEndRef} />
         </div>
+      </div>
+
+      {/* Input */}
+      <div className="bg-white/80 dark:bg-dark-800/80 backdrop-blur-xl rounded-b-2xl border border-gray-100/50 dark:border-dark-700/50 p-4 shrink-0">
+        <form onSubmit={sendMessage} className="flex gap-3">
+          <input
+            type="text"
+            placeholder="Type your message..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            className="flex-1 px-4 py-3 bg-gray-50 dark:bg-dark-700/50 border border-gray-200 dark:border-dark-700 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-medical-500/30 focus:border-medical-500 transition-all duration-200"
+          />
+          <button
+            type="submit"
+            disabled={!input.trim() || loading}
+            className="px-5 py-3 bg-gradient-to-r from-medical-500 to-medical-600 text-white rounded-xl font-medium hover:from-medical-600 hover:to-medical-700 shadow-lg shadow-medical-500/25 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+          >
+            <Send className="w-5 h-5" />
+          </button>
+        </form>
       </div>
     </div>
   );

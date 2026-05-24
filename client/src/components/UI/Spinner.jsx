@@ -8,8 +8,11 @@ const Spinner = ({ size = 'md' }) => {
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className={`${sizeClasses[size]} border-4 border-medical-200 border-t-medical-600 rounded-full animate-spin`}></div>
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="relative">
+        <div className={`${sizeClasses[size]} border-4 border-medical-200/50 dark:border-medical-800/50 border-t-medical-500 dark:border-t-medical-400 rounded-full animate-spin`}></div>
+        <div className={`absolute inset-0 ${sizeClasses[size]} border-4 border-transparent border-t-medical-300/30 dark:border-t-medical-300/10 rounded-full animate-spin`} style={{ animationDirection: 'reverse', animationDuration: '0.8s' }}></div>
+      </div>
     </div>
   );
 };
